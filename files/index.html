@@ -1,0 +1,1137 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>プロット帳</title>
+<style>
+:root{
+  --sumi:#24232a; --paper:#f2f1ec; --panel:#fff; --rule:#dedbd2; --muted:#84817a;
+  --kobai:#a84d68; --seiji:#6d9a97; --faint:#c3c0b8;
+  --shadow:0 1px 2px rgba(36,35,42,.06),0 8px 24px rgba(36,35,42,.05);
+  --mincho:"Hiragino Mincho ProN","Yu Mincho","YuMincho","Noto Serif JP",serif;
+  --gothic:"Hiragino Kaku Gothic ProN","Yu Gothic","Noto Sans JP",system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--paper);color:var(--sumi);font-family:var(--gothic);font-size:15px;line-height:1.7;-webkit-text-size-adjust:100%}
+button{font-family:inherit;font-size:inherit;color:inherit;background:none;border:none;padding:0;cursor:pointer;text-align:left}
+input,textarea,select{font-family:inherit;font-size:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--kobai);outline-offset:2px}
+
+.bar{position:sticky;top:0;z-index:20;background:var(--paper);border-bottom:1px solid var(--rule);
+  padding:14px 18px 12px;display:flex;align-items:center;gap:12px;padding-top:max(14px,env(safe-area-inset-top))}
+.bar h1{font-family:var(--mincho);font-size:19px;font-weight:600;margin:0;letter-spacing:.08em}
+.back{width:32px;height:32px;flex:none;border-radius:50%;display:grid;place-items:center;font-size:17px;color:var(--muted)}
+.back:hover{background:#e7e5de;color:var(--sumi)}
+.title-input{flex:1;min-width:0;background:none;border:none;font-family:var(--mincho);font-size:18px;font-weight:600;
+  letter-spacing:.05em;border-bottom:1px solid transparent;padding:2px 0}
+.title-input:hover{border-bottom-color:var(--rule)}
+.title-input:focus{outline:none;border-bottom-color:var(--kobai)}
+.barbtn{font-size:12px;color:var(--muted);letter-spacing:.06em;white-space:nowrap;flex:none}
+.barbtn:hover{color:var(--kobai)}
+
+.wrap{max-width:880px;margin:0 auto;padding:22px 18px 120px}
+.eyebrow{font-family:var(--mincho);font-size:12px;letter-spacing:.22em;color:var(--muted);display:flex;align-items:center;gap:12px;margin:0 0 12px}
+.eyebrow::after{content:"";flex:1;height:1px;background:var(--rule)}
+.eyebrow+.eyebrow{margin-top:34px}
+.folders{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
+.folder,.plot,.row{background:var(--panel);border:1px solid var(--rule);border-radius:3px;width:100%;
+  transition:transform .12s ease,box-shadow .12s ease}
+.folder{padding:14px 16px;display:flex;align-items:flex-start;gap:6px}
+.fopen{flex:1;min-width:0}
+.folder:hover,.plot:hover,.row:hover{transform:translateY(-1px);box-shadow:var(--shadow)}
+.fname,.ptitle{font-family:var(--mincho);font-size:16px;letter-spacing:.04em}
+.fcount{font-size:12px;color:var(--muted);margin-top:2px}
+.plots{display:flex;flex-direction:column;gap:8px}
+.plot{padding:13px 16px 13px 20px;position:relative;overflow:hidden}
+.plot::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--seiji)}
+.pmeta{font-size:12px;color:var(--muted);margin-top:3px;display:flex;gap:14px;flex-wrap:wrap}
+.status{font-size:11px;border:1px solid var(--rule);border-radius:2px;padding:0 6px;letter-spacing:.08em}
+.row{padding:12px 15px;margin-bottom:7px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.row .rname{font-family:var(--mincho);font-size:15px;flex:1;letter-spacing:.03em;min-width:120px}
+.empty{border:1px dashed var(--rule);border-radius:3px;padding:26px 18px;text-align:center;color:var(--muted);font-size:13px;line-height:1.9}
+.nest{margin-left:22px;border-left:1px solid var(--rule);padding-left:12px}
+
+.fabs{position:fixed;right:18px;bottom:max(20px,env(safe-area-inset-bottom));z-index:30;display:flex;flex-direction:column;gap:9px;align-items:flex-end}
+.fab{background:var(--sumi);color:#fff;border-radius:2px;padding:11px 17px;font-size:13px;letter-spacing:.08em;box-shadow:0 6px 20px rgba(36,35,42,.22)}
+.fab.sub{background:var(--panel);color:var(--sumi);border:1px solid var(--rule);box-shadow:var(--shadow)}
+.fab:hover{opacity:.88}
+
+.detail{display:flex;align-items:flex-start}
+.rail{display:flex}
+.tab{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:2px;color:var(--muted);letter-spacing:.1em;white-space:nowrap}
+.tab .num{font-family:var(--mincho);font-size:11px;opacity:.6}
+.tab .lbl{font-family:var(--mincho);font-size:15px}
+.tab:hover{color:var(--sumi)}
+.tab[aria-selected="true"]{color:var(--sumi);background:var(--panel);box-shadow:var(--shadow)}
+.pane{flex:1;min-width:0;padding:22px 18px 120px}
+.pane-inner{max-width:720px}
+@media (max-width:759px){
+  .rail{position:sticky;top:0;z-index:19;background:var(--paper);border-bottom:1px solid var(--rule);
+    overflow-x:auto;gap:2px;padding:6px 10px;width:100%;scrollbar-width:none}
+  .rail::-webkit-scrollbar{display:none}
+  .detail{flex-direction:column}
+  .tab[aria-selected="true"]{background:none;box-shadow:none;border-bottom:2px solid var(--kobai);border-radius:0}
+  .tab .num{display:none}
+}
+@media (min-width:760px){
+  .detail{max-width:1000px;margin:0 auto;gap:26px;padding:26px 22px 0}
+  .rail{flex-direction:column;gap:3px;width:172px;flex:none;position:sticky;top:76px}
+  .pane{padding:0 0 120px}
+}
+
+.sec{border:1px solid var(--rule);border-radius:3px;margin-bottom:8px;background:var(--panel);overflow:hidden}
+.sec-head{display:flex;align-items:center;gap:10px;width:100%;padding:11px 14px;background:var(--tone,#f6f5f1);cursor:pointer;list-style:none}
+.sec-head::-webkit-details-marker{display:none}
+.sec-head .sname{font-family:var(--mincho);font-size:14px;letter-spacing:.08em;flex:1}
+.sec-head .cnt{font-size:11px;color:#6b6862;font-variant-numeric:tabular-nums}
+.sec-head .car{font-size:11px;color:#6b6862;transition:transform .15s ease}
+.sec[open] .car{transform:rotate(180deg)}
+.sec-body{padding:2px 14px 12px}
+
+.item{padding:12px 0;border-bottom:1px solid #ececE6}
+.item:last-child{border-bottom:none}
+.q{display:block;font-size:12.5px;color:var(--muted);letter-spacing:.03em;line-height:1.65;white-space:pre-line}
+textarea.in{width:100%;border:none;background:none;resize:none;overflow:hidden;padding:4px 0 3px;line-height:1.8;border-bottom:1px solid var(--rule)}
+textarea.in:focus{outline:none;border-bottom-color:var(--kobai)}
+textarea.in::placeholder{color:var(--faint)}
+.deep{margin:9px 0 0;padding:9px 0 0 12px;border-left:2px solid #e7e5de}
+.deep .q{font-size:11.5px;color:#a3a099}
+.filled{color:var(--seiji)}
+
+.chapter{margin-bottom:22px}
+.chapter-head{display:flex;align-items:baseline;gap:10px;border-bottom:1px solid var(--rule);padding-bottom:6px;margin-bottom:9px}
+.chapter-head .cname{font-family:var(--mincho);font-size:15px;letter-spacing:.06em;flex:1}
+.mini{font-size:12px;color:var(--muted);letter-spacing:.06em}
+.mini:hover{color:var(--kobai)}
+.card{background:var(--panel);border:1px solid var(--rule);border-radius:3px;padding:11px 13px;margin-bottom:6px;font-size:14px;white-space:pre-wrap}
+.cardrow{display:flex;gap:4px;align-items:flex-start;margin-bottom:6px}
+textarea.card-in{flex:1;min-width:0;background:var(--panel);border:1px solid var(--rule);border-radius:3px;
+  padding:10px 12px;font-size:14px;line-height:1.8;resize:none;overflow:hidden}
+textarea.card-in:focus{outline:none;border-color:var(--kobai)}
+textarea.card-in::placeholder{color:var(--faint)}
+.tools{display:flex;gap:1px;flex:none;padding-top:9px}
+.tool{width:26px;height:26px;display:grid;place-items:center;color:var(--faint);font-size:13px;border-radius:2px;line-height:1}
+.tool:hover{color:var(--kobai);background:#e9e7e0}
+.handle{cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}
+.handle:active{cursor:grabbing}
+.dragging{opacity:.4}
+.dragging textarea{pointer-events:none}
+.flash textarea.card-in{border-color:var(--kobai);background:#fdf4f6;transition:background .9s ease,border-color .9s ease}
+input.chname{flex:1;min-width:0;background:none;border:none;font-family:var(--mincho);font-size:15px;
+  letter-spacing:.06em;padding:2px 0;border-bottom:1px solid transparent}
+input.chname:hover{border-bottom-color:var(--rule)}
+input.chname:focus{outline:none;border-bottom-color:var(--kobai)}
+.chapter-head .tools{padding-top:0}
+.card-add{width:100%;border:1px dashed var(--rule);border-radius:3px;padding:9px;color:var(--muted);font-size:13px;text-align:center}
+.card-add:hover{border-color:var(--kobai);color:var(--kobai)}
+
+.tl{background:var(--panel);border:1px solid var(--rule);border-radius:3px;padding:14px 0 10px;overflow-x:auto;margin-bottom:12px}
+.tl-axis{position:relative;height:22px;min-width:620px;margin:0 16px}
+.tl-tick{position:absolute;top:0;font-size:11px;color:var(--muted);transform:translateX(-50%)}
+.tl-tick::after{content:"";position:absolute;left:50%;top:18px;width:1px;height:1400px;background:var(--rule)}
+.tl-rows{position:relative;min-width:620px;margin:6px 16px 0}
+.tl-ev{position:relative;height:29px}
+.tl-pin{position:absolute;white-space:nowrap;font-size:13px;display:flex;align-items:center;gap:6px}
+.tl-pin::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--seiji);flex:none}
+.tl-pin b{font-weight:400;font-family:var(--mincho);letter-spacing:.03em}
+.tl-year{font-size:11px;color:var(--muted)}
+
+.chip{display:inline-block;border:1px solid var(--rule);border-radius:2px;padding:1px 8px;font-size:12px;margin:0 5px 5px 0;color:var(--muted);background:var(--panel)}
+.chip.on{border-color:var(--kobai);color:var(--kobai)}
+.chip.ref{border-color:var(--seiji);color:#4d7c79}
+.linkbox{background:var(--panel);border:1px solid var(--rule);border-radius:3px;padding:12px 14px;margin-bottom:8px}
+.linkbox .lh{font-size:11.5px;color:var(--muted);letter-spacing:.1em;margin-bottom:7px;font-family:var(--mincho)}
+.note{font-size:12px;color:var(--muted);line-height:1.9;border-left:2px solid var(--rule);padding-left:12px;margin-top:30px}
+
+.te-item{display:flex;gap:8px;align-items:flex-start;padding:9px 0;border-bottom:1px solid #ececE6}
+.te-item .tq{flex:1;min-width:0;font-size:13px;line-height:1.6}
+.te-item .tq .sub{font-size:11px;color:var(--faint);display:block;margin-top:2px}
+.te-btns{display:flex;gap:2px;flex:none}
+.ic{width:28px;height:28px;display:grid;place-items:center;border:1px solid var(--rule);border-radius:2px;font-size:12px;color:var(--muted);background:var(--panel)}
+.ic:hover{border-color:var(--kobai);color:var(--kobai)}
+.ic:disabled{opacity:.3;cursor:default}
+.arch{background:#f6f5f1;border:1px dashed var(--rule);border-radius:3px;padding:10px 13px;margin-bottom:6px;display:flex;gap:10px;align-items:center}
+.arch .an{flex:1;font-size:13px;color:var(--muted)}
+
+.modal{position:fixed;inset:0;background:rgba(36,35,42,.35);z-index:50;display:grid;place-items:center;padding:18px}
+.sheet{background:var(--paper);border-radius:4px;max-width:520px;width:100%;max-height:86vh;overflow:auto;padding:20px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.sheet h2{font-family:var(--mincho);font-size:16px;letter-spacing:.08em;margin:0 0 4px}
+.sheet p.lead{font-size:12.5px;color:var(--muted);margin:0 0 16px;line-height:1.8}
+.sheet label{display:block;font-size:12px;color:var(--muted);margin:14px 0 4px}
+.sheet input[type=text],.sheet input[type=number],.sheet select,.sheet textarea{width:100%;padding:8px 10px;border:1px solid var(--rule);border-radius:2px;background:var(--panel)}
+.sheet textarea{resize:vertical;min-height:70px}
+.opt{display:flex;gap:9px;align-items:flex-start;padding:10px 12px;border:1px solid var(--rule);border-radius:2px;background:var(--panel);margin-bottom:6px;width:100%}
+.opt.on{border-color:var(--kobai)}
+.opt .ot{font-size:13.5px}
+.opt .od{font-size:11.5px;color:var(--muted);line-height:1.7;margin-top:2px}
+.acts{display:flex;gap:8px;justify-content:flex-end;margin-top:18px}
+.btn{padding:9px 16px;border-radius:2px;font-size:13px;letter-spacing:.06em;background:var(--sumi);color:#fff}
+.btn.ghost{background:none;border:1px solid var(--rule);color:var(--muted)}
+.warn{background:#fbeef1;border:1px solid #e8ccd5;border-radius:2px;padding:10px 12px;font-size:12px;line-height:1.8;color:#7d3b50}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#f2f1ec">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="プロット帳">
+<link rel="apple-touch-icon" href="icon-180.png">
+</head>
+<body>
+<div id="app"></div>
+<div id="modal"></div>
+<input type="file" id="picker" accept="application/json,.json" style="display:none">
+
+<script>
+/* ============================================================
+   テンプレート初期値
+   ============================================================ */
+const DEEP="何が原因でそうなったのか\nそのときのキャラの感情の変化・周囲の感情の変化\n簡単なエピソード";
+const uid=()=>Math.random().toString(36).slice(2,9);
+const I=(q,f)=>({id:uid(),q,f:f||""});
+const TONE={yellow:"#fdf6d8",teal:"#d3e8e4",mauve:"#e0d6d6",blue:"#d6e3f5",orange:"#fbe3c8",green:"#e5eed6",gray:"#f0efeb"};
+
+const BASE={
+  world:()=>({archived:[],sections:[
+    {id:uid(),name:"舞台の設定",tone:"teal",items:[I("時代"),I("世界観"),I("舞台"),
+      I("舞台の王道な要素以外に追加したあなたのオリジナル要素"),I("（もしある場合は）舞台にしかけられている仕掛け")]},
+    {id:uid(),name:"歴史・用語",tone:"mauve",items:[I("過去に起きた重要な事件の概要"),I("設定の用語")]},
+    {id:uid(),name:"起こりそうな事件",tone:"orange",items:[I("起こりそうな事件①"),I("起こりそうな事件②"),
+      I("起こりそうな事件③"),I("起こりそうな事件④"),I("起こりそうな事件⑤")]}
+  ]}),
+  theme:()=>({archived:[],sections:[
+    {id:uid(),name:"命題",tone:"yellow",items:[
+      I("テーマとなる命題（関係性の変化の兆しのある言葉。「秘密→共有：片方だけが知っている状態から、両方が知っている状態になる」など）\n判断基準として使う場面を想定して考える"),
+      I("テーマの象徴となるアイテム"),I("このテーマの面白いポイントは？\nあなたが興味を持ったポイントは？"),
+      I("テーマに関して主張したいこと、読者に伝えたいこと")]},
+    {id:uid(),name:"反対意見・第三の視点",tone:"mauve",items:[I("反対となる意見"),
+      I("第3の意見. 肯定的な意見の立ち位置にいるが、否定的な意見についても理解している"),
+      I("第4の意見. 否定的な意見の立ち位置にいるが、肯定的な意見についても理解している"),
+      I("あなたが好きなもの、得意なもの、深い知識を持っているもの")]},
+    {id:uid(),name:"物語への落とし込み",tone:"green",items:[I("物語のコンセプト"),
+      I("テーマをどのように表現して、読者に伝えるのか"),I("メインストーリーで解決すべきこと"),
+      I("サポートストーリーで解決すべきこと"),I("どうやって解決するのか"),
+      I("物語を通して、主人公はどのように変化するか"),
+      I("物語を通して、モブを含む周囲のキャラクターはどのように変化するか"),
+      I("読者が興味を持つポイントはどこか？"),I("読者（もしくはキャラ）は何に感動するのか？")]}
+  ]}),
+  char:()=>({archived:[],sections:[
+    {id:uid(),name:"物語の設定",tone:"yellow",items:[I("物語上の役割"),I("魅力"),
+      I("ウリになるところ（知り合いに勧めるとき、どの一言を選ぶか。ジャンルとは差別化）")]},
+    {id:uid(),name:"外見の設定",tone:"blue",items:[I("性別"),I("年齢"),I("外見の特徴"),I("よくする仕草"),
+      I("口癖"),I("一人称"),I("周囲からの呼ばれ方、あだ名")]},
+    {id:uid(),name:"社会的設定",tone:"orange",items:[I("現在の境遇",DEEP),I("これまでの生い立ち",DEEP),I("周囲からの評判",DEEP)]},
+    {id:uid(),name:"個人的設定",tone:"green",items:[I("性格",DEEP),I("癖",DEEP),
+      I("倫理や法律よりも大事にしているもの、考え",DEEP),
+      I("これまでで、最も困難だった出来事","その困難のときにどう決断し、どう解決したのか\nどう乗り越えたのか、もしくはどう回避したのか"),
+      I("強みは何か",DEEP),I("強みに関してのエピソード"),I("弱みは何か",DEEP),I("弱みに関してのエピソード"),
+      I("コンプレックスは何か",DEEP),I("共感できるところはどこか"),I("共感できるエピソード")]},
+    {id:uid(),name:"プライベート設定",tone:"gray",items:[I("純粋だった時の気持ち、子供の時の夢は",DEEP),
+      I("二面性、建前と本音の落差・葛藤",DEEP),I("独自の考え",DEEP)]},
+    {id:uid(),name:"起こりそうなイベント",tone:"mauve",items:[
+      I("このキャラクターだからこそ起こりそうなイベント・事件①\nキャラ設定を心理だけで終わらせずに、そこからプロットの材料が出る状態にする"),
+      I("このキャラクターだからこそ起こりそうなイベント・事件②"),I("このキャラクターだからこそ起こりそうなイベント・事件③"),
+      I("このキャラクターだからこそ起こりそうなイベント・事件④"),I("このキャラクターだからこそ起こりそうなイベント・事件⑤")]}
+  ]}),
+  place:()=>({archived:[],sections:[
+    {id:uid(),name:"物語の設定",tone:"yellow",items:[I("詳細（メモ欄）"),
+      I("物語上、どのような役割を持つか\n物語に与える象徴的な意味は何か？"),
+      I("第三者から見た{種}の印象\nどのような特徴があるか"),I("象徴するモチーフ・モニュメント"),
+      I("{種}の意志・声となる人物は誰か"),I("関係者がこうあるべきと考えている理想と実体。そのギャップ")]},
+    {id:uid(),name:"その他の設定",tone:"gray",items:[I("ここで起きる出来事")]}
+  ]})
+};
+const CHAPTERS=["オープニング","キャラや関係性の紹介","テーマについての考え","事件発生","サポートストーリー",
+  "王道演出と関係の進展","問題の深刻化, 表面化","気づきと決断と成長","問題解決","エンディング"];
+const KINDS=["国","町・村","拠点・家"];
+
+/* ============================================================
+   データ
+   ============================================================ */
+const newPlot=(title,folderId)=>({
+  id:uid(),title,folderId,status:"準備中",memo:"",tags:[],tagPool:["受け","攻め","主人公","職場","自宅"],
+  chapters:CHAPTERS.map(n=>({id:uid(),name:n,cards:[]})),
+  tpl:{world:BASE.world(),theme:BASE.theme(),char:BASE.char(),place:BASE.place()},
+  world:{vals:{},events:[]},theme:{vals:{}},chars:[],places:[]
+});
+let state={folders:[],plots:[],lastExport:null};
+
+function seed(){
+  /* 初回は空の状態から始める（見本データは入れない） */
+  state.folders=[];
+  state.plots=[];
+}
+/* ============================================================
+   保存先。使える順に：Claudeの保存領域 → ブラウザ内（IndexedDB）→ メモリだけ
+   実際に書いて読み直せるかを確かめてから決める
+   ============================================================ */
+const store=(()=>{
+  let mode="memory", mem={}, db=null;
+  const openDB=()=>new Promise((res,rej)=>{
+    const r=indexedDB.open("plot-note",1);
+    r.onupgradeneeded=()=>r.result.createObjectStore("kv");
+    r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error);
+  });
+  const tx=(fn,m)=>new Promise((res,rej)=>{
+    const t=db.transaction("kv",m), q=fn(t.objectStore("kv"));
+    q.onsuccess=()=>res(q.result); q.onerror=()=>rej(q.error);
+  });
+  return {
+    get kind(){return mode},
+    async init(){
+      if(window.storage){
+        try{
+          await window.storage.set("__probe","ok");
+          const r=await window.storage.get("__probe");
+          if(r&&r.value==="ok"){ mode="claude"; return; }
+        }catch(e){}
+      }
+      if(window.indexedDB){
+        try{
+          db=await openDB();
+          await tx(s=>s.put("ok","__probe"),"readwrite");
+          if(await tx(s=>s.get("__probe"),"readonly")==="ok"){ mode="idb"; return; }
+        }catch(e){}
+      }
+      mode="memory";
+    },
+    async get(k){
+      try{
+        if(mode==="claude"){ const r=await window.storage.get(k); return r?r.value:null; }
+        if(mode==="idb"){ const v=await tx(s=>s.get(k),"readonly"); return v==null?null:v; }
+      }catch(e){}
+      return mem[k]==null?null:mem[k];
+    },
+    async set(k,v){
+      try{
+        if(mode==="claude"){ await window.storage.set(k,v); return true; }
+        if(mode==="idb"){ await tx(s=>s.put(v,k),"readwrite"); return true; }
+      }catch(e){}
+      mem[k]=v; return false;
+    }
+  };
+})();
+const STORE_LABEL={claude:"Claudeの保存領域",idb:"このブラウザの中",memory:"保存されません"};
+
+async function save(){ await store.set("plot-note-v3",JSON.stringify(state)); }
+async function load(){
+  await store.init();
+  const v=await store.get("plot-note-v3");
+  if(v){ try{ state=JSON.parse(v); return; }catch(e){} }
+  seed();
+}
+
+/* ============================================================
+   画面状態
+   ============================================================ */
+let view={screen:"home",folderId:null,plotId:null,tab:0,entityId:null,kind:null,open:{}};
+let modal=null, modalData={};
+const TABS=["プロット","世界観","拠点","キャラ","テーマ","全体設定"];
+const app=document.getElementById("app"), mroot=document.getElementById("modal"), picker=document.getElementById("picker");
+const esc=s=>(s==null?"":String(s)).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const P=()=>state.plots.find(x=>x.id===view.plotId);
+const stamp=()=>{const d=new Date(),z=n=>String(n).padStart(2,"0");
+  return `${d.getFullYear()}${z(d.getMonth()+1)}${z(d.getDate())}-${z(d.getHours())}${z(d.getMinutes())}`};
+const pretty=s=>s?`${s.slice(0,4)}/${s.slice(4,6)}/${s.slice(6,8)} ${s.slice(9,11)}:${s.slice(11,13)}`:"まだ書き出していません";
+const chr=(p,id)=>p.chars.find(c=>c.id===id);
+const plc=(p,id)=>p.places.find(c=>c.id===id);
+
+function target(){
+  const p=P();
+  if(view.screen==="char") return {tpl:p.tpl.char,vals:chr(p,view.entityId).vals};
+  if(view.screen==="place") return {tpl:p.tpl.place,vals:plc(p,view.entityId).vals};
+  if(view.tab===1) return {tpl:p.tpl.world,vals:p.world.vals};
+  if(view.tab===4) return {tpl:p.tpl.theme,vals:p.theme.vals};
+  return null;
+}
+function subst(t){
+  if(view.screen==="place"){ const pl=plc(P(),view.entityId); if(pl) return t.replace(/\{種\}/g,pl.kind); }
+  return t.replace(/\{種\}/g,"場所");
+}
+
+/* ============================================================
+   描画
+   ============================================================ */
+function render(){
+  app.innerHTML={home,detail,char:entity,place:entity,tpl:tplEditor}[view.screen]();
+  app.querySelectorAll("textarea").forEach(fit);
+  mroot.innerHTML=modal?modal():"";
+  if(view.flashId){
+    const r=app.querySelector(`.cardrow[data-cid="${view.flashId}"]`);
+    if(r){
+      const b=r.getBoundingClientRect();
+      if(b.top<60||b.bottom>window.innerHeight-20) r.scrollIntoView({block:"center"});
+      r.classList.add("flash"); setTimeout(()=>r.classList.remove("flash"),1600);
+    }
+    view.flashId=null;
+  }
+  if(view.focusId){
+    const t=app.querySelector(`textarea[data-act="cardtext"][data-id="${view.focusId}"]`);
+    if(t){t.focus();t.scrollIntoView({block:"center"})}
+    view.focusId=null;
+  }
+  if(!modal&&!view.keepScroll) window.scrollTo(0,0);
+  view.keepScroll=false;
+}
+const fit=t=>{t.style.height="auto";t.style.height=t.scrollHeight+"px"};
+
+function home(){
+  const inF=view.folderId,folder=state.folders.find(f=>f.id===inF);
+  const list=state.plots.filter(p=>p.folderId===(inF||null));
+  return `
+  <div class="bar">${inF?`<button class="back" data-act="home">←</button>`:""}
+    <h1>${inF?esc(folder.name):"プロット帳"}</h1>
+    <button class="barbtn" data-act="backup">バックアップ</button></div>
+  <div class="wrap">
+    ${store.kind==="memory"?`<div class="warn" style="margin-bottom:18px">この環境では書いた内容が保存されません。
+      閉じると消えます。書き出しでJSONを手元に残してください。</div>`:""}
+    ${!inF&&state.folders.length?`<p class="eyebrow">作品フォルダ</p><div class="folders">${state.folders.map(f=>{
+      const n=state.plots.filter(p=>p.folderId===f.id).length;
+      return `<div class="folder"><button class="fopen" data-act="folder" data-id="${f.id}">
+        <div class="fname">${esc(f.name)}</div><div class="fcount">${n} 件のプロット</div></button>
+        <button class="tool" data-act="foldermenu" data-id="${f.id}" title="そのほか">⋮</button></div>`}).join("")}</div>`:""}
+    <p class="eyebrow">${inF?"このフォルダのプロット":"フォルダに入れていないプロット"}</p>
+    ${list.length?`<div class="plots">${list.map(p=>`
+      <button class="plot" data-act="open" data-id="${p.id}"><div class="ptitle">${esc(p.title)}</div>
+      <div class="pmeta"><span class="status">${esc(p.status)}</span><span>${p.chars.length} キャラ</span>
+      <span>${p.places.length} 拠点</span><span>${p.chapters.reduce((a,c)=>a+c.cards.length,0)} カード</span></div></button>`).join("")}</div>`
+    :`<div class="empty">まだプロットがありません。<br>右下の「プロットを作る」から始めます。</div>`}
+    <p class="note">最後の書き出し：${pretty(state.lastExport)}</p>
+  </div>
+  <div class="fabs">${inF?"":`<button class="fab sub" data-act="importjson">作品を読み込む</button>
+    <button class="fab sub" data-act="newfolder">フォルダを作る</button>`}
+    <button class="fab" data-act="newplot">プロットを作る</button></div>`;
+}
+
+function detail(){
+  const p=P();
+  return `
+  <div class="bar"><button class="back" data-act="${p.folderId?"folder":"home"}" data-id="${p.folderId||""}">←</button>
+    <input class="title-input" value="${esc(p.title)}" data-act="title">
+    <button class="barbtn" data-act="export">書き出し</button></div>
+  <div class="detail"><div class="rail" role="tablist">
+    ${TABS.map((t,i)=>`<button class="tab" role="tab" aria-selected="${i===view.tab}" data-act="tab" data-i="${i}">
+      <span class="num">${String(i+1).padStart(2,"0")}</span><span class="lbl">${t}</span></button>`).join("")}
+  </div><div class="pane"><div class="pane-inner">${pane(p)}</div></div></div>`;
+}
+
+function pane(p){
+  switch(view.tab){
+    case 0: return p.chapters.map(c=>`<div class="chapter" data-chid="${c.id}">
+        <div class="chapter-head">
+          <input class="chname" value="${esc(c.name)}" data-act="chname" data-id="${c.id}">
+          <div class="tools">
+            <button class="tool handle" data-drag="chapter" title="ドラッグで章ごと動かす">≡</button>
+            <button class="tool" data-act="chdel" data-id="${c.id}" title="章を削除">×</button>
+          </div></div>
+        ${c.cards.map(k=>`<div class="cardrow" data-cid="${k.id}">
+          <textarea class="card-in" rows="1" data-act="cardtext" data-id="${k.id}"
+            placeholder="ここに場面を書く">${esc(k.text)}</textarea>
+          <div class="tools">
+            <button class="tool handle" data-drag="card" title="ドラッグで動かす">≡</button>
+            <button class="tool" data-act="cardmenu" data-id="${k.id}" title="そのほか">⋮</button>
+          </div></div>`).join("")}
+        <button class="card-add" data-act="addcard" data-id="${c.id}">＋ カード</button>
+      </div>`).join("")+`<button class="mini" data-act="addchapter">＋ 章を追加</button>`;
+    case 1: return timeline(p,p.world.events)+sections(p.tpl.world,p.world.vals,"world");
+    case 2: return placeTree(p)+`<p style="margin-top:14px"><button class="mini" data-act="addplace">＋ 拠点を追加</button>
+        　<button class="mini" data-act="tpl" data-kind="place">テンプレートを編集</button></p>`;
+    case 3: return (p.chars.length?p.chars.map(c=>`
+        <button class="row" data-act="openchar" data-id="${c.id}"><span class="rname">${esc(c.name)}</span>
+        ${c.tags.map(t=>`<span class="chip">#${esc(t)}</span>`).join("")}
+        <span class="mini">${fill(p.tpl.char,c.vals)}</span></button>`).join("")
+      :`<div class="empty">キャラがまだいません。</div>`)
+      +`<p style="margin-top:14px"><button class="mini" data-act="addchar">＋ キャラを追加</button>
+        　<button class="mini" data-act="tpl" data-kind="char">テンプレートを編集</button></p>`;
+    case 4: return sections(p.tpl.theme,p.theme.vals,"theme");
+    case 5: return `
+      <div class="sec" style="--tone:#f6f5f1" open><div class="sec-head"><span class="sname">全体設定</span></div>
+      <div class="sec-body">
+        <div class="item"><label class="q">メモ（ウリ・その作品にしかない独自性）</label>
+          <textarea class="in" data-act="memo" placeholder="ジャンルやあらすじではなく、この作品だけのウリを一言で。">${esc(p.memo)}</textarea></div>
+        <div class="item"><label class="q">執筆状況</label><div style="padding-top:6px">
+          ${["アイデア","準備中","執筆中","完成"].map(s=>`<button class="chip ${p.status===s?"on":""}" data-act="status" data-v="${s}">${s}</button>`).join("")}</div></div>
+        <div class="item"><label class="q">タグ</label><div style="padding-top:6px">${tagChips(p,p,"plot")}</div></div>
+      </div></div>
+      <div class="linkbox" style="margin-top:14px"><div class="lh">バックアップ</div>
+        <p class="mini" style="display:block;margin:0 0 4px">保存先：${STORE_LABEL[store.kind]}</p>
+        <p class="mini" style="display:block;margin:0 0 9px">最後の書き出し：${pretty(state.lastExport)}</p>
+        <button class="chip" data-act="export">書き出す</button>
+        <button class="chip" data-act="importjson">読み込む</button></div>
+      <div class="linkbox"><div class="lh">この作品</div>
+        <button class="chip" data-act="delplot">削除する</button></div>`;
+  }
+}
+
+/* --- タグ --- */
+function tagChips(p,owner,kind){
+  return p.tagPool.map(t=>`<button class="chip ${owner.tags.includes(t)?"on":""}" data-act="tag" data-v="${esc(t)}" data-kind="${kind}">#${esc(t)}</button>`).join("")
+    +`<button class="chip" data-act="newtag">＋</button>`;
+}
+
+/* --- 拠点の入れ子 --- */
+function placeTree(p,parent=null,depth=0){
+  const kids=p.places.filter(x=>(x.parentId||null)===parent);
+  if(!kids.length) return depth===0?`<div class="empty">拠点がありません。<br>ふたりの距離が変わる場所を登録しておくと、場面を置く時に迷いません。</div>`:"";
+  const body=kids.map(x=>{
+    const cs=(x.charIds||[]).map(id=>chr(p,id)).filter(Boolean);
+    return `<button class="row" data-act="openplace" data-id="${x.id}">
+      <span class="rname">${esc(x.name)}</span><span class="status">${esc(x.kind)}</span>
+      ${cs.map(c=>`<span class="chip ref">${esc(c.name)}</span>`).join("")}
+      <span class="mini">${fill(p.tpl.place,x.vals)}</span></button>`+placeTree(p,x.id,depth+1);
+  }).join("");
+  return depth===0?body:`<div class="nest">${body}</div>`;
+}
+
+/* --- セクション --- */
+function fill(tpl,vals){
+  let n=0,t=0; tpl.sections.forEach(s=>s.items.forEach(i=>{t++;if((vals[i.id]?.a||"").trim())n++}));
+  return `${n}/${t}`;
+}
+function sections(tpl,vals,kind){
+  return `<p style="margin:0 0 12px"><button class="mini" data-act="tpl" data-kind="${kind}">テンプレートを編集</button>
+    　<span class="mini">記入 ${fill(tpl,vals)}</span></p>`
+  + tpl.sections.map(s=>{
+    const done=s.items.filter(i=>(vals[i.id]?.a||"").trim()).length;
+    return `<details class="sec" style="--tone:${TONE[s.tone]||TONE.gray}" ${view.open[s.id]?"open":""} data-sec="${s.id}">
+      <summary class="sec-head"><span class="sname">${esc(s.name)}</span>
+      <span class="cnt ${done&&done===s.items.length?"filled":""}">${done}/${s.items.length}</span><span class="car">▲</span></summary>
+      <div class="sec-body">${s.items.map(i=>{
+        const v=vals[i.id]||{};
+        return `<div class="item"><label class="q">${esc(subst(i.q))}</label>
+          <textarea class="in" rows="1" data-act="val" data-id="${i.id}" data-f="a">${esc(v.a||"")}</textarea>
+          ${i.f?`<div class="deep"><label class="q">${esc(subst(i.f))}</label>
+            <textarea class="in" rows="1" data-act="val" data-id="${i.id}" data-f="d">${esc(v.d||"")}</textarea></div>`:""}
+        </div>`}).join("")}</div></details>`}).join("");
+}
+
+/* --- キャラ／拠点ページ --- */
+function entity(){
+  const p=P(),isChar=view.screen==="char";
+  const e=isChar?chr(p,view.entityId):plc(p,view.entityId);
+  const tpl=isChar?p.tpl.char:p.tpl.place;
+  let links="";
+  if(isChar){
+    const places=p.places.filter(x=>(x.charIds||[]).includes(e.id));
+    const evs=p.world.events.filter(x=>(x.charIds||[]).includes(e.id)).sort((a,b)=>ov(a)-ov(b));
+    links=`<div class="linkbox"><div class="lh">関わる拠点</div>
+      ${places.length?places.map(x=>`<span class="chip ref">${esc(x.name)}</span>`).join(""):`<span class="mini">まだありません。拠点の側から紐付けます。</span>`}</div>
+      <div class="linkbox"><div class="lh">この子が関わる出来事</div>
+      ${evs.length?evs.map(x=>`<div style="margin-bottom:6px">
+        <div class="mini">${x.year}年${x.date?" "+esc(x.date):""}　${esc(x.label)}</div>
+        ${x.note?`<div class="mini" style="padding-left:14px;color:#a3a099">${esc(x.note)}</div>`:""}</div>`).join("")
+        :`<span class="mini">まだありません。</span>`}
+      <p style="margin:9px 0 0"><button class="mini" data-act="addevent" data-char="${e.id}">＋ 出来事を追加</button></p></div>`;
+  }else{
+    const cs=(e.charIds||[]).map(id=>chr(p,id)).filter(Boolean);
+    const parent=e.parentId?plc(p,e.parentId):null;
+    const kids=p.places.filter(x=>x.parentId===e.id);
+    links=`<p style="margin:0 0 12px">${KINDS.map(k=>`<button class="chip ${e.kind===k?"on":""}" data-act="kind" data-v="${k}">${k}</button>`).join("")}</p>
+      <div class="linkbox"><div class="lh">位置</div>
+        <button class="chip">${parent?`「${esc(parent.name)}」の下`:"いちばん上"}</button>
+        <button class="chip" data-act="setparent">変更</button>
+        ${kids.length?`<div class="mini" style="margin-top:7px">この下：${kids.map(k=>esc(k.name)).join("、")}</div>`:""}</div>
+      <div class="linkbox"><div class="lh">この場所に関わるのは誰か</div>
+        ${cs.map(c=>`<span class="chip ref">${esc(c.name)}</span>`).join("")}
+        <button class="chip" data-act="setchars">選ぶ</button></div>`;
+  }
+  return `
+  <div class="bar"><button class="back" data-act="backtab" data-i="${isChar?3:2}">←</button>
+    <input class="title-input" value="${esc(e.name)}" data-act="ename">
+    <button class="barbtn" data-act="delentity">削除</button></div>
+  <div class="wrap">${links}
+    <div class="linkbox"><div class="lh">タグ</div>${tagChips(p,e,isChar?"char":"place")}</div>
+    ${sections(tpl,e.vals,isChar?"char":"place")}</div>`;
+}
+
+/* --- 年表 --- */
+/* 出来事の並び順・位置は ord（小数の年）で決める。月日が入っていれば年の途中に置ける */
+const ov=e=>(e.ord!=null?e.ord:e.year);
+/* 「3月31日 14時」→ 年内のどのあたりか */
+function dateOrd(y,d){
+  if(!d) return y;
+  const m=/(\d+)月/.exec(d), day=/(\d+)日/.exec(d);
+  if(!m) return y;
+  return y + ((+m[1]-1) + ((day?+day[1]:1)-1)/31) / 12;
+}
+function timeline(p,events){
+  const ev=[...events].sort((a,b)=>ov(a)-ov(b));
+  const add=`<p style="margin:-2px 0 20px"><button class="mini" data-act="addevent">＋ 出来事を追加</button></p>`;
+  if(!ev.length) return `<div class="empty" style="margin-bottom:12px">出来事がまだありません。</div>`+add;
+  const min=Math.min(...ev.map(ov),-1)-1,max=Math.max(...ev.map(ov),1)+1;
+  const pos=v=>((v-min)/(max-min))*100;
+  const ticks=[];for(let y=Math.ceil(min/2)*2;y<=max;y+=2)ticks.push(y);
+  return `<div class="tl"><div class="tl-axis">${ticks.map(y=>`<span class="tl-tick" style="left:${pos(y)}%">${y}年</span>`).join("")}</div>
+    <div class="tl-rows">${ev.map(e=>{
+      const cs=(e.charIds||[]).map(id=>chr(p,id)).filter(Boolean);
+      return `<div class="tl-ev"><span class="tl-pin" style="left:${pos(ov(e))}%"><b>${esc(e.label)}</b>
+        <span class="tl-year">${e.year}年${e.date?" "+esc(e.date):""}</span>
+        ${cs.map(c=>`<span class="chip ref" style="margin:0">${esc(c.name)}</span>`).join("")}</span></div>`}).join("")}
+    </div></div>`+add;
+}
+
+/* ============================================================
+   テンプレート編集
+   ============================================================ */
+function tplEditor(){
+  const p=P(),tpl=p.tpl[view.kind];
+  const label={world:"世界観",theme:"テーマ",char:"キャラ",place:"拠点"}[view.kind];
+  return `
+  <div class="bar"><button class="back" data-act="closetpl">←</button><h1>${label}のテンプレート</h1>
+    <button class="barbtn" data-act="importtpl">他の作品から取り込む</button></div>
+  <div class="wrap">
+    <p class="note" style="margin:0 0 20px">項目を消しても、書いた内容は下の「しまってある項目」に残ります。戻せばそのまま復活します。</p>
+    ${tpl.sections.map((s,si)=>`<div class="sec" style="--tone:${TONE[s.tone]||TONE.gray}">
+      <div class="sec-head"><span class="sname">${esc(s.name)}</span><div class="te-btns">
+        <button class="ic" data-act="secup" data-i="${si}" ${si===0?"disabled":""}>↑</button>
+        <button class="ic" data-act="secdown" data-i="${si}" ${si===tpl.sections.length-1?"disabled":""}>↓</button>
+        <button class="ic" data-act="secname" data-i="${si}">名</button>
+        <button class="ic" data-act="secdel" data-i="${si}">×</button></div></div>
+      <div class="sec-body">${s.items.map((it,ii)=>`<div class="te-item">
+        <div class="tq">${esc(subst(it.q))}${it.f?`<span class="sub">＋深掘り：${esc(subst(it.f).split("\n")[0])}…</span>`:""}</div>
+        <div class="te-btns">
+          <button class="ic" data-act="itup" data-s="${si}" data-i="${ii}" ${ii===0?"disabled":""}>↑</button>
+          <button class="ic" data-act="itdown" data-s="${si}" data-i="${ii}" ${ii===s.items.length-1?"disabled":""}>↓</button>
+          <button class="ic" data-act="itedit" data-s="${si}" data-i="${ii}">編</button>
+          <button class="ic" data-act="itmove" data-s="${si}" data-i="${ii}">移</button>
+          <button class="ic" data-act="itdel" data-s="${si}" data-i="${ii}">×</button></div></div>`).join("")}
+        <p style="margin:10px 0 0"><button class="mini" data-act="itadd" data-s="${si}">＋ 項目を追加</button></p>
+      </div></div>`).join("")}
+    <p style="margin:14px 0 30px"><button class="mini" data-act="secadd">＋ セクションを追加</button></p>
+    <p class="eyebrow">しまってある項目（${tpl.archived.length}）</p>
+    ${tpl.archived.length?tpl.archived.map((a,i)=>`<div class="arch"><span class="an">${esc(subst(a.item.q))}</span>
+      <button class="ic" data-act="restore" data-i="${i}">戻す</button></div>`).join("")
+      :`<div class="empty">消した項目はここに入ります。</div>`}
+  </div>`;
+}
+
+/* ============================================================
+   モーダル
+   ============================================================ */
+const wrapM=inner=>`<div class="modal" data-act="closemodal"><div class="sheet" data-stop>${inner}</div></div>`;
+
+const mItem=()=>wrapM(`<h2>${modalData.isNew?"項目を追加":"項目を編集"}</h2>
+  <p class="lead">深掘りを空にすると、問いだけの項目になります。</p>
+  <label>問い</label><textarea id="q">${esc(modalData.q)}</textarea>
+  <label>深掘り（任意）</label><textarea id="f">${esc(modalData.f)}</textarea>
+  <p class="lead" style="margin:10px 0 0">よく使う深掘り：<button class="mini" data-act="usedeep">標準の3行を入れる</button></p>
+  <div class="acts"><button class="btn ghost" data-act="closemodal">やめる</button><button class="btn" data-act="saveitem">保存</button></div>`);
+
+const mPlotDel=()=>{
+  const p=P(), cards=p.chapters.reduce((a,c)=>a+c.cards.length,0);
+  return wrapM(`<h2>「${esc(p.title)}」を削除</h2>
+    <p class="lead">この作品に入っているものが全部消えます。元に戻せません。</p>
+    <div class="warn">キャラ ${p.chars.length}人／拠点 ${p.places.length}件／カード ${cards}枚／
+      年表 ${p.world.events.length}件／テンプレートの手直しも一緒に消えます。</div>
+    <p class="lead" style="margin:14px 0 0">心配なら、先にこの作品だけ書き出しておけます。あとで読み込めば元に戻せます。</p>
+    <div class="acts"><button class="btn ghost" data-act="closemodal">やめる</button>
+      <button class="btn ghost" data-act="doexport" data-v="json1">先に書き出す</button>
+      <button class="btn" data-act="dodelplot">削除する</button></div>`);
+};
+
+const mFolderMenu=()=>{
+  const f=state.folders.find(x=>x.id===modalData.fid);
+  const n=state.plots.filter(p=>p.folderId===f.id).length;
+  return wrapM(`<h2>${esc(f.name)}</h2>
+    <button class="opt" data-act="folderrename"><div class="ot">名前を変える</div></button>
+    <button class="opt" data-act="folderdel"><div><div class="ot">フォルダを削除</div>
+      <div class="od">${n?`中の ${n} 件はフォルダなしに移ります。作品自体は消えません。`:"空のフォルダです。"}</div></div></button>
+    <div class="acts"><button class="btn ghost" data-act="closemodal">やめる</button></div>`);
+};
+const mCardMenu=()=>wrapM(`<h2>このカード</h2>
+  <button class="opt" data-act="cardmove"><div class="ot">別の章へ移す</div></button>
+  <button class="opt" data-act="carddel"><div class="ot">削除する</div></button>
+  <div class="acts"><button class="btn ghost" data-act="closemodal">やめる</button></div>`);
+
+const mCardMove=()=>{
+  const p=P(),here=p.chapters.find(c=>c.cards.some(k=>k.id===modalData.cid));
+  return wrapM(`<h2>カードを移す</h2><p class="lead">移動先の章を選びます。書いた内容はそのまま移ります。</p>
+  ${p.chapters.map(c=>`<button class="opt ${c===here?"on":""}" data-act="docardmove" data-id="${c.id}">
+    <div><div class="ot">${esc(c.name)}</div><div class="od">${c.cards.length} カード${c===here?"　（今ここ）":""}</div></div></button>`).join("")}
+  <div class="acts"><button class="btn ghost" data-act="closemodal">やめる</button></div>`);
+};
+
+const mMove=()=>wrapM(`<h2>項目を移す</h2><p class="lead">移動先のセクションを選びます。書いた内容は一緒に移ります。</p>
+  ${P().tpl[view.kind].sections.map((s,i)=>`<button class="opt" data-act="domove" data-i="${i}"><div class="ot">${esc(s.name)}</div></button>`).join("")}
+  <div class="acts"><button class="btn ghost" data-act="closemodal">やめる</button></div>`);
+
+const mImportTpl=()=>{
+  const others=state.plots.filter(p=>p.id!==view.plotId);
+  const label={world:"世界観",theme:"テーマ",char:"キャラ",place:"拠点"}[view.kind];
+  return wrapM(`<h2>${label}のテンプレートを取り込む</h2>
+    <p class="lead">他の作品で育てたテンプレートを持ってきます。記入した内容には触りません。</p>
+    ${others.length?`<label>どの作品から</label>
+    <select id="src">${others.map(p=>`<option value="${p.id}">${esc(p.title)}</option>`).join("")}</select>
+    <label>取り込み方</label>
+    <button class="opt ${modalData.mode==="add"?"on":""}" data-act="mode" data-v="add"><div><div class="ot">足りない項目だけ追加</div>
+      <div class="od">今の項目はそのまま。向こうにしかない項目を末尾に足します。作業中の作品でも安全です。</div></div></button>
+    <button class="opt ${modalData.mode==="replace"?"on":""}" data-act="mode" data-v="replace"><div><div class="ot">まるごと差し替え</div>
+      <div class="od">構成を置き換えます。今の項目は「しまってある項目」に移るので、記入済みの内容は消えません。</div></div></button>
+    <div class="acts"><button class="btn ghost" data-act="closemodal">やめる</button><button class="btn" data-act="doimporttpl">取り込む</button></div>`
+    :`<div class="empty">他にプロットがありません。</div><div class="acts"><button class="btn ghost" data-act="closemodal">閉じる</button></div>`}`);
+};
+
+const mExport=()=>{
+  const p=view.plotId?P():null;
+  return wrapM(`<h2>書き出す</h2><p class="lead">ファイル名には日時が入ります。上書きの心配はありません。</p>
+  ${p?`<button class="opt" data-act="doexport" data-v="all"><div><div class="ot">この作品すべて（テキスト）</div>
+    <div class="od">プロット・世界観・拠点・キャラ・テーマをまとめて。空欄は省きます。</div></div></button>
+  <button class="opt" data-act="doexport" data-v="tab"><div><div class="ot">今のタブだけ（テキスト）</div>
+    <div class="od">${TABS[view.tab]}の内容だけ。</div></div></button>
+  <button class="opt" data-act="doexport" data-v="json1"><div><div class="ot">この作品だけ（JSON）</div>
+    <div class="od">「${esc(p.title)}」だけを持ち出せます。別の端末で読み込めば、この作品が丸ごと入ります。</div></div></button>`:""}
+  <button class="opt" data-act="doexport" data-v="json"><div><div class="ot">まるごとバックアップ（JSON）</div>
+    <div class="od">${state.plots.length}作品ぶんのデータ全部。端末を移す時や、保存しておく用。</div></div></button>
+  <div class="acts"><button class="btn ghost" data-act="importjson">読み込む</button>
+    <button class="btn ghost" data-act="closemodal">閉じる</button></div>`);
+};
+
+const mImportJson=()=>wrapM(`<h2>バックアップを読み込む</h2>
+  <p class="lead">書き出したJSONファイルを選びます。読み込む直前に、今のデータを自動で書き出して手元に残します。</p>
+  <button class="opt ${modalData.jmode==="merge"?"on":""}" data-act="jmode" data-v="merge"><div><div class="ot">足りない作品だけ追加</div>
+    <div class="od">同じ作品があったら、どちらを残すか1件ずつ確認します。両方の端末で別々に書いた時はこちら。</div></div></button>
+  <button class="opt ${modalData.jmode==="replace"?"on":""}" data-act="jmode" data-v="replace"><div><div class="ot">まるごと置き換え</div>
+    <div class="od">今のデータを捨てて、ファイルの状態にします。PCからスマホへ移す時はこちら。</div></div></button>
+  <div class="warn">読み込む直前に、今のデータを保険として書き出します${window.showSaveFilePicker?"（保存先を聞かれます）":"（ダウンロードフォルダに入ります）"}。間違えたら、それを読み込み直せば元に戻せます。</div>
+  <div class="acts"><button class="btn ghost" data-act="closemodal">やめる</button>
+    <button class="btn" data-act="pickfile">ファイルを選ぶ</button></div>`);
+
+const mChars=()=>{
+  const p=P(),pl=plc(p,view.entityId),sel=new Set(modalData.sel);
+  return wrapM(`<h2>この場所に関わるのは誰か</h2><p class="lead">選んだキャラのページにも、この場所が表示されます。</p>
+    ${p.chars.length?p.chars.map(c=>`<button class="opt ${sel.has(c.id)?"on":""}" data-act="togglechar" data-id="${c.id}">
+      <div class="ot">${esc(c.name)}${sel.has(c.id)?"　✓":""}</div></button>`).join(""):`<div class="empty">キャラがまだいません。</div>`}
+    <div class="acts"><button class="btn ghost" data-act="closemodal">やめる</button><button class="btn" data-act="savechars">決定</button></div>`);
+};
+
+const mParent=()=>{
+  const p=P(),me=view.entityId;
+  const desc=id=>{const out=[id];p.places.filter(x=>x.parentId===id).forEach(k=>out.push(...desc(k.id)));return out};
+  const banned=new Set(desc(me));
+  return wrapM(`<h2>位置を選ぶ</h2><p class="lead">国＞町・村＞拠点・家のように、上下の関係を作れます。</p>
+    <button class="opt" data-act="doparent" data-id=""><div class="ot">いちばん上（どこにも属さない）</div></button>
+    ${p.places.filter(x=>!banned.has(x.id)).map(x=>`<button class="opt" data-act="doparent" data-id="${x.id}">
+      <div><div class="ot">「${esc(x.name)}」の下</div><div class="od">${esc(x.kind)}</div></div></button>`).join("")}
+    <div class="acts"><button class="btn ghost" data-act="closemodal">やめる</button></div>`);
+};
+
+const mEvent=()=>{
+  const p=P(),sel=new Set(modalData.sel);
+  return wrapM(`<h2>出来事を追加</h2><p class="lead">現在を0年として、過去はマイナスで入れます。</p>
+    <label>出来事</label><input type="text" id="evl" value="${esc(modalData.label||"")}">
+    <label>何年目</label><input type="number" id="evy" step="1" value="${modalData.year??-1}">
+    <label>日付（任意。「3月31日」など。入れると年の中の位置が正確になります）</label>
+    <input type="text" id="evd" value="${esc(modalData.date||"")}">
+    <label>メモ（任意）</label><textarea id="evn">${esc(modalData.note||"")}</textarea>
+    <label>関わるキャラ</label>
+    ${p.chars.length?p.chars.map(c=>`<button class="opt ${sel.has(c.id)?"on":""}" data-act="toggleevchar" data-id="${c.id}">
+      <div class="ot">${esc(c.name)}${sel.has(c.id)?"　✓":""}</div></button>`).join(""):`<span class="mini">キャラがまだいません。</span>`}
+    <div class="acts"><button class="btn ghost" data-act="closemodal">やめる</button><button class="btn" data-act="saveevent">追加</button></div>`);
+};
+
+/* ============================================================
+   操作
+   ============================================================ */
+const ask=(m,d)=>prompt(m,d||"");
+const mv=(a,i,d)=>{const[x]=a.splice(i,1);a.splice(i+d,0,x)};
+
+document.addEventListener("click",e=>{
+  const el=e.target.closest("[data-act]"); if(!el) return;
+  const a=el.dataset.act;
+  if(a==="closemodal"&&el.classList.contains("modal")&&e.target.closest("[data-stop]")) return;
+  const p=view.plotId?P():null;
+  const tpl=(view.screen==="tpl"&&p)?p.tpl[view.kind]:null;
+
+  switch(a){
+    case "home": view={...view,screen:"home",folderId:null,plotId:null,tab:0}; break;
+    case "folder": view={...view,screen:"home",folderId:el.dataset.id||null,plotId:null,tab:0}; break;
+    case "open": view={...view,screen:"detail",plotId:el.dataset.id,tab:0}; break;
+    case "tab": view.tab=+el.dataset.i; break;
+    case "backtab": view={...view,screen:"detail",tab:+el.dataset.i,entityId:null}; break;
+    case "openchar": view={...view,screen:"char",entityId:el.dataset.id}; break;
+    case "openplace": view={...view,screen:"place",entityId:el.dataset.id}; break;
+    case "tpl": view={...view,screen:"tpl",kind:el.dataset.kind}; break;
+    case "closetpl": view={...view,screen:view.entityId?(view.kind==="char"?"char":"place"):"detail"}; break;
+
+    case "newfolder":{const n=ask("フォルダ名");if(n)state.folders.push({id:uid(),name:n});break}
+    case "foldermenu": modalData={fid:el.dataset.id}; modal=mFolderMenu; break;
+    case "folderrename":{const f=state.folders.find(x=>x.id===modalData.fid);
+      const n=ask("フォルダ名",f.name); if(n)f.name=n; modal=null; break}
+    case "folderdel":{
+      state.plots.forEach(x=>{ if(x.folderId===modalData.fid) x.folderId=null });
+      state.folders=state.folders.filter(x=>x.id!==modalData.fid);
+      modal=null; break}
+    case "delplot": modal=mPlotDel; break;
+    case "dodelplot":{
+      const f=p.folderId;
+      state.plots=state.plots.filter(x=>x.id!==view.plotId);
+      modal=null; view={screen:"home",folderId:f,plotId:null,tab:0,entityId:null,kind:null,open:{}};
+      break}
+    case "newplot":{const n=ask("プロットの題名");if(n)state.plots.push(newPlot(n,view.folderId));break}
+    case "addchapter":{const n=ask("章の名前");if(n)p.chapters.push({id:uid(),name:n,cards:[]});break}
+    case "chdel":{const i=p.chapters.findIndex(c=>c.id===el.dataset.id),c=p.chapters[i];
+      if(c.cards.length&&!confirm(`「${c.name}」を削除します。中の ${c.cards.length} カードも一緒に消えます。`))break;
+      p.chapters.splice(i,1);view.keepScroll=true;break}
+    case "addcard":{const c=p.chapters.find(x=>x.id===el.dataset.id);const k={id:uid(),text:""};
+      c.cards.push(k);view.focusId=k.id;view.keepScroll=true;break}
+    case "cardmenu": modalData={cid:el.dataset.id}; modal=mCardMenu; break;
+    case "carddel":{
+      const c=p.chapters.find(x=>x.cards.some(k=>k.id===modalData.cid));
+      const k=c.cards.find(x=>x.id===modalData.cid);
+      if(k.text.trim()&&!confirm("このカードを削除します。")){modal=null;break}
+      c.cards=c.cards.filter(x=>x.id!==modalData.cid);modal=null;view.keepScroll=true;break}
+    case "cardmove": modal=mCardMove; break;
+    case "docardmove":{
+      const from=p.chapters.find(x=>x.cards.some(k=>k.id===modalData.cid));
+      const to=p.chapters.find(x=>x.id===el.dataset.id);
+      if(from!==to){const k=from.cards.find(x=>x.id===modalData.cid);
+        from.cards=from.cards.filter(x=>x.id!==modalData.cid);to.cards.push(k)}
+      modal=null;view.keepScroll=true;break}
+    case "addchar":{const n=ask("キャラ名");if(n){const c={id:uid(),name:n,vals:{},tags:[]};p.chars.push(c);view={...view,screen:"char",entityId:c.id}}break}
+    case "addplace":{const n=ask("拠点の名前");if(n){const c={id:uid(),name:n,kind:"拠点・家",parentId:null,vals:{},tags:[],charIds:[]};
+      p.places.push(c);view={...view,screen:"place",entityId:c.id}}break}
+    case "delentity":{
+      if(!confirm("これを削除します。書いた内容も消えます。"))break;
+      if(view.screen==="char"){
+        p.chars=p.chars.filter(x=>x.id!==view.entityId);
+        p.places.forEach(x=>x.charIds=(x.charIds||[]).filter(i=>i!==view.entityId));
+        p.world.events.forEach(x=>x.charIds=(x.charIds||[]).filter(i=>i!==view.entityId));
+        view={...view,screen:"detail",tab:3,entityId:null};
+      }else{
+        p.places.forEach(x=>{if(x.parentId===view.entityId)x.parentId=null});
+        p.places=p.places.filter(x=>x.id!==view.entityId);
+        view={...view,screen:"detail",tab:2,entityId:null};
+      } break;
+    }
+    case "kind": plc(p,view.entityId).kind=el.dataset.v; break;
+    case "status": p.status=el.dataset.v; break;
+    case "tag":{
+      const t=el.dataset.v,k=el.dataset.kind;
+      const o=k==="plot"?p:(k==="char"?chr(p,view.entityId):plc(p,view.entityId));
+      o.tags=o.tags.includes(t)?o.tags.filter(x=>x!==t):[...o.tags,t]; break;
+    }
+    case "newtag":{const t=ask("新しいタグ");if(t&&!p.tagPool.includes(t))p.tagPool.push(t);break}
+
+    /* 紐付け */
+    case "setchars": modalData={sel:[...(plc(p,view.entityId).charIds||[])]}; modal=mChars; break;
+    case "togglechar":{const id=el.dataset.id;const s=new Set(modalData.sel);s.has(id)?s.delete(id):s.add(id);modalData.sel=[...s];break}
+    case "savechars": plc(p,view.entityId).charIds=modalData.sel; modal=null; break;
+    case "setparent": modal=mParent; break;
+    case "doparent": plc(p,view.entityId).parentId=el.dataset.id||null; modal=null; break;
+    case "addevent": modalData={sel:el.dataset.char?[el.dataset.char]:[],label:"",year:-1}; modal=mEvent; break;
+    case "toggleevchar":{const id=el.dataset.id;const s=new Set(modalData.sel);s.has(id)?s.delete(id):s.add(id);modalData.sel=[...s];
+      modalData.label=document.getElementById("evl").value;modalData.year=document.getElementById("evy").value;
+      modalData.date=document.getElementById("evd").value;modalData.note=document.getElementById("evn").value;break}
+    case "saveevent":{
+      const l=document.getElementById("evl").value.trim();
+      if(!l){alert("出来事を入れてください。");return}
+      const y=parseInt(document.getElementById("evy").value,10)||0;
+      const d=document.getElementById("evd").value.trim();
+      p.world.events.push({id:uid(),label:l,year:y,ord:dateOrd(y,d),date:d,
+        note:document.getElementById("evn").value.trim(),charIds:modalData.sel});
+      modal=null; break;
+    }
+
+    /* テンプレート */
+    case "secup": mv(tpl.sections,+el.dataset.i,-1); break;
+    case "secdown": mv(tpl.sections,+el.dataset.i,1); break;
+    case "secname":{const s=tpl.sections[+el.dataset.i];const n=ask("セクション名",s.name);if(n)s.name=n;break}
+    case "secadd":{const n=ask("セクション名");if(n)tpl.sections.push({id:uid(),name:n,tone:"gray",items:[]});break}
+    case "secdel":{const s=tpl.sections[+el.dataset.i];
+      if(!confirm(`「${s.name}」を消します。中の ${s.items.length} 項目は「しまってある項目」に移ります。`))break;
+      s.items.forEach(it=>tpl.archived.push({item:it,from:s.name}));tpl.sections.splice(+el.dataset.i,1);break}
+    case "itup": mv(tpl.sections[+el.dataset.s].items,+el.dataset.i,-1); break;
+    case "itdown": mv(tpl.sections[+el.dataset.s].items,+el.dataset.i,1); break;
+    case "itdel":{const s=tpl.sections[+el.dataset.s];tpl.archived.push({item:s.items[+el.dataset.i],from:s.name});
+      s.items.splice(+el.dataset.i,1);break}
+    case "restore":{const ar=tpl.archived[+el.dataset.i];
+      const s=tpl.sections.find(x=>x.name===ar.from)||tpl.sections[0];
+      if(!s){alert("戻す先のセクションがありません。先にセクションを追加してください。");break}
+      s.items.push(ar.item);tpl.archived.splice(+el.dataset.i,1);break}
+    case "itadd": modalData={isNew:true,s:+el.dataset.s,q:"",f:""}; modal=mItem; break;
+    case "itedit":{const it=tpl.sections[+el.dataset.s].items[+el.dataset.i];
+      modalData={isNew:false,s:+el.dataset.s,i:+el.dataset.i,q:it.q,f:it.f};modal=mItem;break}
+    case "usedeep": document.getElementById("f").value=DEEP; return;
+    case "saveitem":{
+      const q=document.getElementById("q").value.trim(),f=document.getElementById("f").value.trim();
+      if(!q){alert("問いを入れてください。");return}
+      if(modalData.isNew) tpl.sections[modalData.s].items.push(I(q,f));
+      else{const it=tpl.sections[modalData.s].items[modalData.i];it.q=q;it.f=f}
+      modal=null;break}
+    case "itmove": modalData={s:+el.dataset.s,i:+el.dataset.i}; modal=mMove; break;
+    case "domove":{const from=tpl.sections[modalData.s],to=tpl.sections[+el.dataset.i];
+      const[it]=from.items.splice(modalData.i,1);to.items.push(it);modal=null;break}
+    case "importtpl": modalData={mode:"add"}; modal=mImportTpl; break;
+    case "mode": modalData.mode=el.dataset.v; break;
+    case "doimporttpl":{
+      const src=state.plots.find(x=>x.id===document.getElementById("src").value);
+      const from=JSON.parse(JSON.stringify(src.tpl[view.kind]));
+      if(modalData.mode==="replace"){
+        tpl.sections.forEach(s=>s.items.forEach(it=>tpl.archived.push({item:it,from:s.name})));
+        tpl.sections=from.sections;
+      }else{
+        const have=new Set();tpl.sections.forEach(s=>s.items.forEach(it=>have.add(it.q)));
+        from.sections.forEach(fs=>{
+          const add=fs.items.filter(it=>!have.has(it.q)); if(!add.length)return;
+          const t=tpl.sections.find(s=>s.name===fs.name);
+          if(t)t.items.push(...add); else tpl.sections.push({id:uid(),name:fs.name,tone:fs.tone,items:add});
+        });
+      }
+      modal=null;break}
+
+    /* 書き出し・読み込み */
+    case "export": modal=mExport; break;
+    case "backup": modal=mExport; break;
+    case "doexport": doExport(el.dataset.v); modal=null; break;
+    case "importjson": modalData={jmode:modalData.jmode||"merge"}; modal=mImportJson; break;
+    case "jmode": modalData.jmode=el.dataset.v; break;
+    case "pickfile": picker.click(); return;
+    case "closemodal": modal=null; break;
+    default: return;
+  }
+  save(); render();
+});
+
+document.addEventListener("input",e=>{
+  const el=e.target.closest("[data-act]"); if(!el) return;
+  const a=el.dataset.act,p=P();
+  if(a==="title") p.title=el.value;
+  else if(a==="chname") p.chapters.find(c=>c.id===el.dataset.id).name=el.value;
+  else if(a==="cardtext"){
+    const c=p.chapters.find(x=>x.cards.some(k=>k.id===el.dataset.id));
+    c.cards.find(k=>k.id===el.dataset.id).text=el.value; fit(el);
+  }
+  else if(a==="ename") (view.screen==="char"?chr(p,view.entityId):plc(p,view.entityId)).name=el.value;
+  else if(a==="memo"){p.memo=el.value;fit(el)}
+  else if(a==="val"){const t=target(),id=el.dataset.id;t.vals[id]=t.vals[id]||{};t.vals[id][el.dataset.f]=el.value;fit(el)}
+  else return;
+  save();
+});
+
+document.addEventListener("toggle",e=>{
+  const d=e.target.closest("[data-sec]"); if(d) view.open[d.dataset.sec]=d.open;
+},true);
+
+document.addEventListener("keydown",e=>{
+  if(view.screen!=="detail"||modal) return;
+  if(["TEXTAREA","INPUT","SELECT"].includes(e.target.tagName)) return;
+  const n=parseInt(e.key,10); if(n>=1&&n<=6){view.tab=n-1;render()}
+});
+
+/* ============================================================
+   ドラッグで並べ替え（マウスでも指でも動く）
+   要素を動かしてから、最後に画面の並び順をデータに書き戻す
+   ============================================================ */
+let drag=null, scrollDir=0;
+const chaps=()=>[...app.querySelectorAll(".chapter")];
+
+function autoScroll(){
+  if(!drag){scrollDir=0;return}
+  if(scrollDir) window.scrollBy(0,scrollDir);
+  requestAnimationFrame(autoScroll);
+}
+
+document.addEventListener("pointerdown",e=>{
+  const h=e.target.closest(".handle"); if(!h) return;
+  const isCh=h.dataset.drag==="chapter";
+  const el=h.closest(isCh?".chapter":".cardrow"); if(!el) return;
+  /* 元の位置を控えておく（万一見失っても戻せるように） */
+  let orig={chapterId:null,index:0};
+  if(!isCh){
+    const p=P(),cid=el.dataset.cid;
+    const c=p.chapters.find(x=>x.cards.some(k=>k.id===cid));
+    if(c) orig={chapterId:c.id,index:c.cards.findIndex(k=>k.id===cid)};
+  }
+  drag={el,type:h.dataset.drag,orig};
+  el.classList.add("dragging");
+  h.setPointerCapture(e.pointerId);
+  requestAnimationFrame(autoScroll);
+  e.preventDefault();
+});
+
+document.addEventListener("pointermove",e=>{
+  if(!drag) return;
+  e.preventDefault();
+  const y=e.clientY, vh=window.innerHeight;
+  /* 画面の端では自動でスクロール（遠くの章へも運べる） */
+  scrollDir = y>vh-100 ? 16 : (y<100 ? -16 : 0);
+  if(drag.type==="card"){
+    const cs=chaps(); if(!cs.length) return;
+    /* まず落とす章を決める：カーソルより上から始まっている、いちばん下の章。
+       こうすると章と章のすき間でも行き先を見失わない */
+    let t=cs[0];
+    for(const c of cs){ if(y>=c.getBoundingClientRect().top) t=c; }
+    /* 次にその章の中での位置を決める */
+    const here=[...t.querySelectorAll(".cardrow")].filter(r=>r!==drag.el);
+    for(const r of here){
+      const b=r.getBoundingClientRect();
+      if(y<b.top+b.height/2){ t.insertBefore(drag.el,r); return; }
+    }
+    t.insertBefore(drag.el,t.querySelector(".card-add"));
+  }else{
+    const others=chaps().filter(c=>c!==drag.el);
+    for(const c of others){
+      const b=c.getBoundingClientRect();
+      if(y<b.top+b.height/2){ c.parentNode.insertBefore(drag.el,c); return; }
+    }
+    const last=others[others.length-1];
+    if(last) last.parentNode.insertBefore(drag.el,last.nextSibling);
+  }
+});
+
+function endDrag(){
+  if(!drag) return;
+  const el=drag.el, orig=drag.orig, movedId=el.dataset.cid||null;
+  el.classList.remove("dragging");
+  drag=null; scrollDir=0;
+
+  const p=P(); if(!p){ render(); return; }
+  const chById=new Map(p.chapters.map(c=>[c.id,c]));
+  const cardById=new Map(); p.chapters.forEach(c=>c.cards.forEach(k=>cardById.set(k.id,k)));
+
+  /* 画面の並びを読む。データを書き換えるのは、全部そろって確認できた時だけ */
+  const order=[]; const seen=new Set(); let ok=true;
+  chaps().forEach(ce=>{
+    const c=chById.get(ce.dataset.chid); if(!c){ ok=false; return; }
+    const cards=[...ce.querySelectorAll(".cardrow")].map(r=>cardById.get(r.dataset.cid)).filter(Boolean);
+    cards.forEach(k=>seen.add(k.id));
+    order.push({c,cards});
+  });
+
+  if(ok&&order.length===p.chapters.length){
+    /* 保険：画面から消えたカードがあれば、元の場所へ戻す */
+    cardById.forEach((k,id)=>{
+      if(seen.has(id)) return;
+      const home=order.find(o=>o.c.id===orig.chapterId)||order[0];
+      if(home) home.cards.splice(Math.min(orig.index,home.cards.length),0,k);
+    });
+    order.forEach(o=>o.c.cards=o.cards);
+    p.chapters=order.map(o=>o.c);
+  }
+  save(); view.keepScroll=true; view.flashId=movedId; render();
+}
+document.addEventListener("pointerup",endDrag);
+document.addEventListener("pointercancel",endDrag);
+
+/* ============================================================
+   書き出し・読み込み
+   ============================================================ */
+async function dl(name,text,type){
+  const mime=type||"text/plain;charset=utf-8";
+  const ext=name.slice(name.lastIndexOf("."));
+  /* 保存先を選べるブラウザ（PCのChrome・Edgeなど）ではダイアログを出す。
+     前回選んだフォルダは id で覚えているので、2回目からは同じ場所が開く。 */
+  if(window.showSaveFilePicker){
+    try{
+      const h=await window.showSaveFilePicker({
+        suggestedName:name, id:"plotnote", startIn:"documents",
+        types:[{description:ext===".json"?"バックアップ":"テキスト",accept:{[mime.split(";")[0]]:[ext]}}]
+      });
+      const w=await h.createWritable(); await w.write(text); await w.close();
+      return true;
+    }catch(e){
+      if(e&&e.name==="AbortError") return false;   /* 利用者がやめた */
+      /* それ以外は下の従来方式へ */
+    }
+  }
+  const b=new Blob([text],{type:mime}),u=URL.createObjectURL(b),a=document.createElement("a");
+  a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),1000);
+  return true;
+}
+function dumpTpl(tpl,vals,title){
+  let out=`■ ${title}\n`;
+  tpl.sections.forEach(s=>{
+    const lines=s.items.filter(i=>(vals[i.id]?.a||"").trim()).map(i=>{
+      const v=vals[i.id];
+      return `・${i.q.split("\n")[0]}\n  ${v.a}`+(v.d?.trim()?`\n  └ ${v.d.replace(/\n/g,"\n    ")}`:"");
+    });
+    if(lines.length) out+=`\n【${s.name}】\n${lines.join("\n")}\n`;
+  });
+  return out+"\n";
+}
+/* ファイル名に使えない文字を安全な形に */
+const safe=s=>(s||"無題").replace(/[\\/:*?"<>|]/g,"-").replace(/\s+/g," ").trim().slice(0,60);
+
+async function doExport(scope){
+  const t=stamp();
+  if(scope==="json"){
+    const n=`プロット帳-${state.plots.length}作品-${t}.json`;
+    if(await dl(n,JSON.stringify(state,null,1),"application/json")){ state.lastExport=t; save(); render(); }
+    return;
+  }
+  const p=P();
+  if(scope==="json1"){
+    /* この作品だけ。所属フォルダも一緒に入れておけば、読み込んだ先でも同じ場所に入る */
+    const one={folders:state.folders.filter(f=>f.id===p.folderId),plots:[p],lastExport:null};
+    const n=`${safe(p.title)}-${t}.json`;
+    if(await dl(n,JSON.stringify(one,null,1),"application/json")){ state.lastExport=t; save(); render(); }
+    return;
+  }
+  let out=`${p.title}\n${"=".repeat(20)}\n\n`;
+  const want=i=>scope==="all"||view.tab===i;
+  if(want(0)){out+="■ プロット\n";
+    p.chapters.forEach(c=>{if(c.cards.length)out+=`\n【${c.name}】\n`+c.cards.map(k=>`・${k.text}`).join("\n")+"\n"});out+="\n"}
+  if(want(1)){
+    if(p.world.events.length){out+="■ 年表\n";
+      [...p.world.events].sort((a,b)=>ov(a)-ov(b)).forEach(e=>{
+        const cs=(e.charIds||[]).map(id=>chr(p,id)?.name).filter(Boolean);
+        out+=`${String(e.year).padStart(4)}年${e.date?" "+e.date:""}　${e.label}${cs.length?`　［${cs.join("、")}］`:""}\n`;
+        if(e.note) out+=`      ${e.note.replace(/\n/g,"\n      ")}\n`;
+      });
+      out+="\n"}
+    out+=dumpTpl(p.tpl.world,p.world.vals,"世界観");
+  }
+  if(want(2)) p.places.forEach(x=>{
+    const par=x.parentId?plc(p,x.parentId)?.name:null;
+    const cs=(x.charIds||[]).map(id=>chr(p,id)?.name).filter(Boolean);
+    out+=dumpTpl(p.tpl.place,x.vals,`拠点：${x.name}（${x.kind}${par?`／「${par}」の下`:""}${cs.length?`／関わる人：${cs.join("、")}`:""}）`)});
+  if(want(3)) p.chars.forEach(c=>{
+    const pls=p.places.filter(x=>(x.charIds||[]).includes(c.id)).map(x=>x.name);
+    out+=dumpTpl(p.tpl.char,c.vals,`キャラ：${c.name}${c.tags.length?`（#${c.tags.join(" #")}）`:""}${pls.length?`／関わる拠点：${pls.join("、")}`:""}`)});
+  if(want(4)) out+=dumpTpl(p.tpl.theme,p.theme.vals,"テーマ");
+  if(want(5)) out+=`■ 全体設定\nメモ：${p.memo}\n状況：${p.status}\nタグ：${p.tags.join(" ")}\n`;
+  const n=scope==="tab" ? `${safe(p.title)}-${TABS[view.tab]}-${t}.txt` : `${safe(p.title)}-${t}.txt`;
+  if(await dl(n,out)){ state.lastExport=t; save(); render(); }
+}
+
+picker.addEventListener("change",e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=async()=>{
+    let data;
+    try{ data=JSON.parse(r.result); }catch(err){ alert("このファイルは読み込めませんでした。書き出したJSONを選んでください。"); return; }
+    if(!data||!Array.isArray(data.plots)){ alert("プロット帳のバックアップではないようです。"); return; }
+    /* 読み込む前に、今のデータを保険として書き出す */
+    const bname=`プロット帳-読み込み前-${state.plots.length}作品-${stamp()}.json`;
+    const kept=await dl(bname,JSON.stringify(state,null,1),"application/json");
+    if(!kept&&!confirm("直前のバックアップを保存しませんでした。\nこのまま読み込むと、今のデータは元に戻せません。続けますか？")) return;
+    if(modalData.jmode==="replace"){
+      state=data;
+    }else{
+      data.folders?.forEach(f2=>{ if(!state.folders.some(x=>x.id===f2.id)) state.folders.push(f2) });
+      data.plots.forEach(np=>{
+        const i=state.plots.findIndex(x=>x.id===np.id);
+        if(i<0){ state.plots.push(np); return; }
+        const keepFile=confirm(`「${np.title}」は両方にあります。\n\nOK＝ファイル側を残す\nキャンセル＝今の端末側を残す`);
+        if(keepFile) state.plots[i]=np;
+      });
+    }
+    modal=null; view={screen:"home",folderId:null,plotId:null,tab:0,entityId:null,kind:null,open:{}};
+    save(); render();
+    alert(`読み込みました。\n\n${kept?`念のため、読み込む前のデータを ${bname} として保存してあります。間違えていたら、それを読み込み直せば戻せます。`:"直前のバックアップは保存していません。"}`);
+  };
+  r.readAsText(f); picker.value="";
+});
+
+load().then(render);
+</script>
+<script>
+/* オフラインで使えるようにする。更新は sw.js の V を上げれば反映される */
+if("serviceWorker" in navigator){
+  window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
+}
+</script>
+</body>
+</html>
